@@ -40,13 +40,34 @@ def fill_board(board):
     return True
 
 def remove_cells(board, clues):
-    attempts = SIZE * SIZE - clues
-    while attempts > 0:
-        row = random.randrange(SIZE)
-        col = random.randrange(SIZE)
-        if board[row][col] != EMPTY:
+    # Remove cells while ensuring the resulting puzzle has exactly one solution.
+    to_remove = SIZE * SIZE - clues
+    removed = 0
+
+    # Helper: try removing cells in random order and only keep removal
+    # when the puzzle still has exactly one solution.
+    positions = [(r, c) for r in range(SIZE) for c in range(SIZE)]
+    # Keep attempting passes until we've removed enough or no progress
+    # can be made (to avoid infinite loops).
+    while removed < to_remove:
+        random.shuffle(positions)
+        progress = False
+        for row, col in positions:
+            if removed >= to_remove:
+                break
+            if board[row][col] == EMPTY:
+                continue
+            backup = board[row][col]
             board[row][col] = EMPTY
-            attempts -= 1
+            sols = count_solutions(board)
+            if sols == 1:
+                removed += 1
+                progress = True
+            else:
+                board[row][col] = backup
+        if not progress:
+            # No further unique-preserving removals possible
+            break
 
 def generate_puzzle(clues=35):
     board = create_empty_board()
@@ -55,3 +76,41 @@ def generate_puzzle(clues=35):
     remove_cells(board, clues)
     puzzle = deep_copy(board)
     return puzzle, solution
+
+
+def count_solutions(board, limit=2):
+    """
+    Count the number of solutions for the given Sudoku `board` using
+    backtracking. Stop early when `limit` solutions are found.
+
+    Returns an integer: 0, 1, or >=2 (bounded by limit).
+    """
+    b = deep_copy(board)
+    solutions = 0
+
+    def find_empty(cell_board):
+        for r in range(SIZE):
+            for c in range(SIZE):
+                if cell_board[r][c] == EMPTY:
+                    return r, c
+        return None
+
+    def backtrack():
+        nonlocal solutions
+        if solutions >= limit:
+            return
+        empty = find_empty(b)
+        if not empty:
+            solutions += 1
+            return
+        r, c = empty
+        for num in range(1, SIZE + 1):
+            if is_safe(b, r, c, num):
+                b[r][c] = num
+                backtrack()
+                b[r][c] = EMPTY
+                if solutions >= limit:
+                    return
+
+    backtrack()
+    return solutions
