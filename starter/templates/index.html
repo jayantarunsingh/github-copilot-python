@@ -15,6 +15,10 @@
       <option value="medium">Medium</option>
       <option value="hard">Hard</option>
     </select>
+    <label for="dark-mode-toggle" class="dark-toggle-label">Dark Mode</label>
+    <input id="dark-mode-toggle" type="checkbox" aria-label="Toggle dark mode">
+    <label for="player-name">Player:</label>
+    <input id="player-name" type="text" placeholder="Your name" maxlength="20">
     <button id="new-game">New Game</button>
     <button id="check-solution">Check Solution</button>
     <button id="hint-button">Hint</button>
@@ -27,6 +31,12 @@
   </div>
 
   <div id="sudoku-board"></div>
+
+  <div class="scoreboard">
+    <h2>Top 10 Scoreboard</h2>
+    <div id="scoreboard"></div>
+  </div>
+
   <script src="/static/main.js"></script>
 </body>
 </html>

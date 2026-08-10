@@ -1,5 +1,7 @@
 // Client-side rendering and interaction for the Flask-backed Sudoku
 const SIZE = 9;
+const SCOREBOARD_KEY = 'sudokuTopScores';
+const MAX_SCORES = 10;
 let puzzle = [];
 let hintsUsed = 0;
 let elapsedSeconds = 0;
@@ -19,6 +21,15 @@ function createBoardElement() {
       input.className = 'sudoku-cell';
       input.dataset.row = i;
       input.dataset.col = j;
+      // mark which 3x3 box this cell belongs to and add alternating class
+      const boxRow = Math.floor(i / 3);
+      const boxCol = Math.floor(j / 3);
+      const boxIndex = boxRow * 3 + boxCol;
+      input.dataset.box = String(boxIndex);
+      // alternate coloring by (boxRow + boxCol) parity so adjacent boxes differ
+      if (((boxRow + boxCol) % 2) === 0) {
+        input.classList.add('box-alt');
+      }
       input.addEventListener('input', (e) => {
         if (gameComplete) {
           e.target.value = '';
@@ -61,6 +72,139 @@ function stopTimer() {
   if (timerInterval !== null) {
     clearInterval(timerInterval);
     timerInterval = null;
+  }
+}
+
+function safeParseScoreboard(raw) {
+  if (typeof raw !== 'string') {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed.filter(score => {
+      return score
+        && typeof score.player === 'string'
+        && typeof score.time === 'number'
+        && typeof score.formatted === 'string'
+        && typeof score.difficulty === 'string'
+        && typeof score.hints === 'number';
+    });
+  } catch (e) {
+    return [];
+  }
+}
+
+function loadScoreboard() {
+  try {
+    const raw = window.localStorage.getItem(SCOREBOARD_KEY);
+    return safeParseScoreboard(raw);
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveScoreboard(scores) {
+  try {
+    window.localStorage.setItem(SCOREBOARD_KEY, JSON.stringify(scores));
+  } catch (e) {
+    // Ignore storage errors, keep game playable.
+  }
+}
+
+function formatTime(seconds) {
+  const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const secs = String(seconds % 60).padStart(2, '0');
+  return `${mins}:${secs}`;
+}
+
+function renderScoreboard() {
+  const scoreboardDiv = document.getElementById('scoreboard');
+  const scores = loadScoreboard();
+  if (scores.length === 0) {
+    scoreboardDiv.innerHTML = '<p>No completed games yet.</p>';
+    return;
+  }
+  const rows = scores.map((score, index) => {
+    return `
+      <tr>
+        <td>${index + 1}</td>
+        <td>${score.player}</td>
+        <td>${score.difficulty}</td>
+        <td>${score.formatted}</td>
+        <td>${score.hints}</td>
+      </tr>`;
+  }).join('');
+  scoreboardDiv.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Player</th>
+          <th>Difficulty</th>
+          <th>Time</th>
+          <th>Hints</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+    </table>`;
+}
+
+function addScoreIfNew(score) {
+  const scores = loadScoreboard();
+  const duplicate = scores.some(existing =>
+    existing.player === score.player &&
+    existing.time === score.time &&
+    existing.difficulty === score.difficulty &&
+    existing.hints === score.hints &&
+    existing.formatted === score.formatted);
+  if (duplicate) {
+    return scores;
+  }
+  const next = [...scores, score]
+    .sort((a, b) => a.time - b.time)
+    .slice(0, MAX_SCORES);
+  saveScoreboard(next);
+  return next;
+}
+
+// Dark mode handling
+const DARK_MODE_KEY = 'sudokuDarkMode';
+
+function applyDarkMode(enabled) {
+  try {
+    if (enabled) {
+      document.body.classList.add('dark');
+      const cb = document.getElementById('dark-mode-toggle');
+      if (cb) cb.checked = true;
+    } else {
+      document.body.classList.remove('dark');
+      const cb = document.getElementById('dark-mode-toggle');
+      if (cb) cb.checked = false;
+    }
+  } catch (e) {
+    // ignore
+  }
+}
+
+function loadDarkModePref() {
+  try {
+    const v = window.localStorage.getItem(DARK_MODE_KEY);
+    return v === '1' || v === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+function saveDarkModePref(enabled) {
+  try {
+    window.localStorage.setItem(DARK_MODE_KEY, enabled ? '1' : '0');
+  } catch (e) {
+    // ignore storage errors
   }
 }
 
@@ -179,6 +323,17 @@ async function checkSolution() {
       stopTimer();
       disableBoard();
       gameComplete = true;
+      const player = document.getElementById('player-name').value.trim() || 'Anonymous';
+      const difficulty = document.getElementById('difficulty').value;
+      const score = {
+        player,
+        time: elapsedSeconds,
+        formatted: formatTime(elapsedSeconds),
+        difficulty,
+        hints: hintsUsed,
+      };
+      addScoreIfNew(score);
+      renderScoreboard();
       return;
     }
     setMessage('So far so good! Keep going.', '#1976d2');
@@ -222,5 +377,16 @@ window.addEventListener('load', () => {
   document.getElementById('new-game').addEventListener('click', newGame);
   document.getElementById('check-solution').addEventListener('click', checkSolution);
   document.getElementById('hint-button').addEventListener('click', requestHint);
+  // initialize dark mode based on saved preference
+  const dark = loadDarkModePref();
+  applyDarkMode(dark);
+  const toggle = document.getElementById('dark-mode-toggle');
+  if (toggle) {
+    toggle.addEventListener('change', (e) => {
+      applyDarkMode(e.target.checked);
+      saveDarkModePref(e.target.checked);
+    });
+  }
+  renderScoreboard();
   newGame();
 });

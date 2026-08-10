@@ -11,6 +11,8 @@ def test_index_route():
     assert res.status_code == 200
     # basic sanity: HTML returned
     assert b'<' in res.data
+    # page includes dark mode toggle control
+    assert b'dark-mode-toggle' in res.data
 
 
 def test_new_game_route_sets_current_and_returns_puzzle():
