@@ -28,6 +28,18 @@ def test_new_game_route_sets_current_and_returns_puzzle():
     assert non_empty == 28
 
 
+def test_new_game_route_with_difficulty_sets_expected_clues():
+    random.seed(0)
+    res = client().get('/new?difficulty=easy')
+    assert res.status_code == 200
+    data = res.get_json()
+    puzzle = data.get('puzzle')
+    assert puzzle is not None
+    assert len(puzzle) == sudoku_app_module.sudoku_logic.SIZE
+    non_empty = sum(1 for row in puzzle for v in row if v != sudoku_app_module.sudoku_logic.EMPTY)
+    assert non_empty == sudoku_app_module.sudoku_logic.DIFFICULTY_CLUES['easy']
+
+
 def test_check_solution_success_and_failure():
     random.seed(3)
     client().get('/new?clues=35')

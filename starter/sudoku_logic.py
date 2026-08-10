@@ -4,6 +4,12 @@ import random
 SIZE = 9
 EMPTY = 0
 
+DIFFICULTY_CLUES = {
+    'easy': 40,
+    'medium': 32,
+    'hard': 26,
+}
+
 def deep_copy(board):
     return copy.deepcopy(board)
 
@@ -69,7 +75,22 @@ def remove_cells(board, clues):
             # No further unique-preserving removals possible
             break
 
-def generate_puzzle(clues=35):
+def get_clues_for_difficulty(difficulty):
+    if difficulty is None:
+        raise ValueError('Difficulty must be provided')
+    if not isinstance(difficulty, str):
+        raise TypeError('Difficulty must be a string')
+    normalized = difficulty.strip().lower()
+    if normalized not in DIFFICULTY_CLUES:
+        raise ValueError(
+            f"Unknown difficulty '{difficulty}'. Valid options are: {', '.join(DIFFICULTY_CLUES)}"
+        )
+    return DIFFICULTY_CLUES[normalized]
+
+
+def generate_puzzle(clues=35, difficulty=None):
+    if difficulty is not None:
+        clues = get_clues_for_difficulty(difficulty)
     board = create_empty_board()
     fill_board(board)
     solution = deep_copy(board)
