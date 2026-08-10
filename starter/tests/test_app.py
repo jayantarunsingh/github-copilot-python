@@ -63,3 +63,33 @@ def test_check_no_game_in_progress():
     res = client().post('/check', json={'board': empty_board})
     assert res.status_code == 400
     assert 'error' in res.get_json()
+
+
+def test_hint_route_no_game_in_progress():
+    sudoku_app_module.CURRENT['solution'] = None
+    empty_board = sudoku_app_module.sudoku_logic.create_empty_board()
+    res = client().post('/hint', json={'board': empty_board})
+    assert res.status_code == 400
+    assert 'error' in res.get_json()
+
+
+def test_hint_route_returns_empty_cell_value():
+    sudoku_app_module.CURRENT['solution'] = [[(j + 1) for j in range(9)] for _ in range(9)]
+    board = sudoku_app_module.sudoku_logic.create_empty_board()
+    board[0][0] = 0
+    board[0][1] = 2
+    res = client().post('/hint', json={'board': board})
+    assert res.status_code == 200
+    data = res.get_json()
+    row = data['row']
+    col = data['col']
+    assert board[row][col] == sudoku_app_module.sudoku_logic.EMPTY
+    assert data['value'] == sudoku_app_module.CURRENT['solution'][row][col]
+
+
+def test_hint_route_no_empty_cells():
+    sudoku_app_module.CURRENT['solution'] = [[(j + 1) for j in range(9)] for _ in range(9)]
+    board = [[j + 1 for j in range(9)] for _ in range(9)]
+    res = client().post('/hint', json={'board': board})
+    assert res.status_code == 400
+    assert 'error' in res.get_json()
